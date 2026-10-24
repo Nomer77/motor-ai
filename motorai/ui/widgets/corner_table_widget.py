@@ -20,6 +20,7 @@ class CornerTableWidget(QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.setWordWrap(True)
 
     def set_tips(self, tips: list[CornerTip]) -> None:
         self.setRowCount(len(tips))
@@ -34,7 +35,10 @@ class CornerTableWidget(QTableWidget):
                 loss_item.setForeground(_qcolor(COLOR_GOOD))
             self.setItem(row, 1, loss_item)
 
-            self.setItem(row, 2, QTableWidgetItem(tip.text))
+            text_item = QTableWidgetItem(tip.text)
+            text_item.setToolTip(tip.text)
+            self.setItem(row, 2, text_item)
+        self.resizeRowsToContents()
 
 
 def _qcolor(hex_value: str):

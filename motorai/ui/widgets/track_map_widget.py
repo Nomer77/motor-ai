@@ -11,7 +11,14 @@ from matplotlib.colors import TwoSlopeNorm
 from matplotlib.figure import Figure
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from motorai.ui.palette import COLOR_GAINING_TIME, COLOR_LOSING_TIME, COLOR_NEUTRAL, SURFACE_LIGHT, TEXT_SECONDARY
+from motorai.ui.palette import (
+    COLOR_GAINING_TIME,
+    COLOR_LOSING_TIME,
+    COLOR_NEUTRAL,
+    SURFACE_LIGHT,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+)
 
 
 class TrackMapWidget(QWidget):
@@ -22,11 +29,21 @@ class TrackMapWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self._canvas)
 
-    def set_data(self, car_x: np.ndarray, car_z: np.ndarray, delta_rate: np.ndarray) -> None:
+    def set_data(
+        self,
+        car_x: np.ndarray,
+        car_z: np.ndarray,
+        delta_rate: np.ndarray,
+        apex_points: list[tuple[int, float, float]] | None = None,
+    ) -> None:
         """``delta_rate`` is the per-bin rate of change of the delta trace
         (positive = losing time right here, negative = gaining it) — using
         the local rate rather than the cumulative delta so color reflects
         *this* stretch of track, not how far behind the whole lap already is.
+
+        ``apex_points`` is ``[(corner_index, x, z), ...]`` — where each
+        detected corner's apex actually is, marked directly on the map so
+        it doesn't have to be inferred from the data.
         """
         self._figure.clear()
         ax = self._figure.add_subplot(111, facecolor=SURFACE_LIGHT)
@@ -43,11 +60,27 @@ class TrackMapWidget(QWidget):
         lc.set_array(smoothed[:-1])
         ax.add_collection(lc)
 
+        for corner_index, x, z in apex_points or []:
+            ax.scatter([x], [z], s=36, facecolor=SURFACE_LIGHT, edgecolor=TEXT_PRIMARY, linewidth=1.5, zorder=5)
+            ax.annotate(
+                str(corner_index),
+                (x, z),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=8,
+                color=TEXT_PRIMARY,
+                fontweight="bold",
+            )
+
         ax.set_xlim(car_x.min() - 20, car_x.max() + 20)
         ax.set_ylim(car_z.min() - 20, car_z.max() + 20)
         ax.set_aspect("equal")
         ax.axis("off")
-        ax.set_title("Трасса: красный — теряешь время, синий — быстрее идеала", color=TEXT_SECONDARY, fontsize=9)
+        ax.set_title(
+            "Трасса: красный — теряешь время, синий — быстрее идеала. Точки — апексы поворотов",
+            color=TEXT_SECONDARY,
+            fontsize=9,
+        )
 
         self._canvas.draw()
 

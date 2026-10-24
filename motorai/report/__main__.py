@@ -34,7 +34,7 @@ def main() -> None:
                 return
             session_dir = sessions[0]
         meta, laps, frames = store.load_session(session_dir)
-        track, car, track_length_m = meta.track, meta.car, None
+        track, car, track_length_m = meta.track, meta.car, meta.track_length_m
 
     report = analyse_session(track, car, laps, frames, analysed_lap_number=args.lap, track_length_m=track_length_m)
     generate_html_report(report, args.out)

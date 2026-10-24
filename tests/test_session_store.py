@@ -3,7 +3,7 @@ from motorai.storage.session_store import SessionStore
 
 def test_save_and_load_session_roundtrip(tmp_path):
     store = SessionStore(root=tmp_path)
-    session_dir = store.new_session_dir(track="Spa", car="GT3 Car")
+    session_dir = store.new_session_dir(track="Spa", car="GT3 Car", track_length_m=7004.0)
 
     rows = [
         {
@@ -25,6 +25,7 @@ def test_save_and_load_session_roundtrip(tmp_path):
 
     assert meta.track == "Spa"
     assert meta.car == "GT3 Car"
+    assert meta.track_length_m == 7004.0
     assert [lap.lap_number for lap in laps] == [1, 2]
     assert laps[0].valid is True
     assert laps[1].valid is False

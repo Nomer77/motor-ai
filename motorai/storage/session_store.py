@@ -42,6 +42,7 @@ class SessionMeta:
     track: str
     car: str
     created_at: str
+    track_length_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -56,12 +57,12 @@ class SessionStore:
         self.root = root or DEFAULT_ROOT
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def new_session_dir(self, track: str, car: str) -> Path:
+    def new_session_dir(self, track: str, car: str, track_length_m: float | None = None) -> Path:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         session_id = f"{_slug(track)}__{_slug(car)}__{timestamp}"
         path = self.root / session_id
         path.mkdir(parents=True, exist_ok=False)
-        meta = SessionMeta(track=track, car=car, created_at=timestamp)
+        meta = SessionMeta(track=track, car=car, created_at=timestamp, track_length_m=track_length_m)
         (path / "meta.json").write_text(json.dumps(asdict(meta), ensure_ascii=False, indent=2))
         (path / "laps.json").write_text("[]")
         return path

@@ -19,11 +19,11 @@ def main() -> None:
     probe = SharedMemoryReader()
     probe.open()
     static = probe.static_info
-    track, car = static.track, static.carModel
+    track, car, track_length_m = static.track, static.carModel, float(static.trackSPlineLength)
     probe.close()
 
     store = SessionStore()
-    session_dir = store.new_session_dir(track=track, car=car)
+    session_dir = store.new_session_dir(track=track, car=car, track_length_m=track_length_m)
     print(f"Recording session: track={track!r} car={car!r}")
     print(f"Saving to: {session_dir}")
 

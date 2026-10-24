@@ -13,38 +13,31 @@ from PySide6.QtWidgets import (
 )
 
 from motorai.analysis.summary import SessionReport, analyse_session
-from motorai.storage.session_store import LapInfo
+from motorai.ui.session_entries import SessionEntry
 from motorai.ui.widgets.corner_table_widget import CornerTableWidget
 from motorai.ui.widgets.telemetry_chart_widget import TelemetryChartWidget
 from motorai.ui.widgets.track_map_widget import TrackMapWidget
 
 
 class MainWindow(QMainWindow):
-    def __init__(
-        self,
-        track: str,
-        car: str,
-        laps: list[LapInfo],
-        frames: dict,
-        track_length_m: float | None = None,
-    ) -> None:
+    def __init__(self, entries: list[SessionEntry], initial_index: int = 0) -> None:
         super().__init__()
         self.setWindowTitle("MotorAI — анализ заезда")
-        self.resize(1280, 820)
+        self.resize(1280, 860)
 
-        self._track = track
-        self._car = car
-        self._laps = laps
-        self._frames = frames
-        self._track_length_m = track_length_m
+        self._entries = entries
 
+        self._title_label = QLabel()
+        self._title_label.setStyleSheet("font-weight: 600;")
         self._summary_label = QLabel()
         self._summary_label.setStyleSheet("font-size: 14px; padding: 8px;")
 
+        self._session_selector = QComboBox()
+        for entry in entries:
+            self._session_selector.addItem(entry.label)
+        self._session_selector.currentIndexChanged.connect(self._on_session_changed)
+
         self._lap_selector = QComboBox()
-        for lap in laps:
-            suffix = "" if lap.valid else " (невалидный)"
-            self._lap_selector.addItem(f"Круг {lap.lap_number} — {lap.lap_time_ms / 1000:.3f}с{suffix}", lap.lap_number)
         self._lap_selector.currentIndexChanged.connect(self._on_lap_changed)
 
         self._track_map = TrackMapWidget()
@@ -53,9 +46,11 @@ class MainWindow(QMainWindow):
 
         header = QWidget()
         header_layout = QHBoxLayout(header)
-        header_layout.addWidget(QLabel(f"{track} — {car}"))
+        header_layout.addWidget(self._title_label)
         header_layout.addStretch()
-        header_layout.addWidget(QLabel("Круг для анализа:"))
+        header_layout.addWidget(QLabel("Сессия:"))
+        header_layout.addWidget(self._session_selector)
+        header_layout.addWidget(QLabel("Круг:"))
         header_layout.addWidget(self._lap_selector)
 
         charts = QSplitter(Qt.Orientation.Horizontal)
@@ -71,10 +66,32 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._corner_table, stretch=2)
         self.setCentralWidget(central)
 
+        self._session_selector.blockSignals(True)
+        self._session_selector.setCurrentIndex(initial_index)
+        self._session_selector.blockSignals(False)
+        self._load_current_session()
+
+    def _on_session_changed(self, _index: int) -> None:
+        self._load_current_session()
+
+    def _load_current_session(self) -> None:
+        entry = self._entries[self._session_selector.currentIndex()]
+        self._track, self._car, self._track_length_m, self._laps, self._frames = entry.loader()
+        self._title_label.setText(f"{self._track} — {self._car}")
+
+        self._lap_selector.blockSignals(True)
+        self._lap_selector.clear()
+        for lap in self._laps:
+            suffix = "" if lap.valid else " (невалидный)"
+            self._lap_selector.addItem(f"Круг {lap.lap_number} — {lap.lap_time_ms / 1000:.3f}с{suffix}", lap.lap_number)
+        self._lap_selector.blockSignals(False)
+
         self._on_lap_changed(0)
 
     def _on_lap_changed(self, _index: int) -> None:
         lap_number = self._lap_selector.currentData()
+        if lap_number is None:
+            return
         report = analyse_session(
             self._track,
             self._car,
@@ -99,7 +116,13 @@ class MainWindow(QMainWindow):
         delta_rate = np.gradient(delta)
 
         corner_markers = [(c.index, analysed_lap["position"].iloc[c.apex_bin]) for c in report.corners]
+        apex_points = [
+            (c.index, float(reference_lap["car_x"].iloc[c.apex_bin]), float(reference_lap["car_z"].iloc[c.apex_bin]))
+            for c in report.corners
+        ]
 
-        self._track_map.set_data(analysed_lap["car_x"].to_numpy(), analysed_lap["car_z"].to_numpy(), delta_rate)
+        self._track_map.set_data(
+            analysed_lap["car_x"].to_numpy(), analysed_lap["car_z"].to_numpy(), delta_rate, apex_points
+        )
         self._telemetry_chart.set_data(analysed_lap, reference_lap, delta, corner_markers)
         self._corner_table.set_tips(report.tips)

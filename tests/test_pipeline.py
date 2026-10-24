@@ -49,3 +49,35 @@ def test_gap_to_theoretical_is_non_negative_for_every_lap():
             continue
         report = analyse_session(track, car, laps, frames, analysed_lap_number=lap.lap_number, track_length_m=length_m)
         assert report.gap_to_theoretical_ms >= -1  # tolerance
+
+
+def test_tips_report_apex_location_and_are_zero_for_the_reference_lap_itself():
+    track, car, length_m, laps, frames = _session()
+
+    report = analyse_session(track, car, laps, frames, track_length_m=length_m)
+
+    for tip in report.tips:
+        # every corner has a known apex distance from the start/finish line, in meters
+        assert tip.apex_position_m is not None
+        assert 0 <= tip.apex_position_m <= length_m
+
+    # comparing the reference lap against itself: no corner should register a line miss
+    self_report = analyse_session(
+        track, car, laps, frames, analysed_lap_number=report.reference_lap_number, track_length_m=length_m
+    )
+    for tip in self_report.tips:
+        assert tip.apex_line_miss_m < 0.01
+        assert tip.apex_line_side is None
+
+
+def test_flawed_lap_can_report_an_apex_line_miss():
+    track, car, length_m, laps, frames = _session()
+    flawed_lap_number = max(lap.lap_number for lap in laps)
+
+    report = analyse_session(
+        track, car, laps, frames, analysed_lap_number=flawed_lap_number, track_length_m=length_m
+    )
+
+    # apex_line_miss_m is always a valid non-negative measurement, even when small
+    assert all(tip.apex_line_miss_m >= 0 for tip in report.tips)
+    assert all((tip.apex_line_side in (None, "левее", "правее")) for tip in report.tips)

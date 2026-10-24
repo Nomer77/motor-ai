@@ -75,6 +75,20 @@ class SharedMemoryReader:
                 "and has a session actually started (not just the main menu)?"
             ) from exc
 
+        # mmap.mmap(-1, size, tagname) on Windows CREATES a fresh, zero-filled
+        # mapping if none with that name exists yet — it does not raise just
+        # because AC isn't running. Without this check, open() would "succeed"
+        # and poll() would silently stream all-zero telemetry forever instead
+        # of failing loudly.
+        ctypes.memmove(ctypes.addressof(self._static), self._maps["static"], ctypes.sizeof(self._static))
+        if not self._static.acVersion and not self._static.track:
+            self.close()
+            raise RuntimeError(
+                "AC shared memory is empty — Assetto Corsa doesn't look like it's "
+                "running a session right now (main menu doesn't count; get on track "
+                "in Practice/Hotlap/Time Attack first)."
+            )
+
     def close(self) -> None:
         for m in self._maps.values():
             m.close()

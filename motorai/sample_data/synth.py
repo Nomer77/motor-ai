@@ -111,11 +111,13 @@ def generate_lap(
     mistake_speed_scale: float = 1.0,
     mistake_shift_m: float = 0.0,
     mistake_half_width_m: float = 80.0,
+    mistake_lateral_offset_m: float = 0.0,
 ) -> tuple[pd.DataFrame, float]:
     n = len(geo.s)
     noise = 1.0 + rng.normal(0, 0.01, size=n)
     speed_ms = ideal_speed_ms * noise
 
+    car_x, car_z = geo.car_x, geo.car_z
     if mistake_apex_s is not None:
         center = mistake_apex_s * geo.total_length_m + mistake_shift_m
         dist_m = np.minimum(
@@ -124,6 +126,18 @@ def generate_lap(
         )
         affected = dist_m < mistake_half_width_m
         speed_ms = np.where(affected, speed_ms * mistake_speed_scale, speed_ms)
+
+        if mistake_lateral_offset_m:
+            # Missed-apex simulation: push the driven line sideways (relative
+            # to the track's own tangent/normal) near the mistake, tapering
+            # to zero at the edges of the affected window.
+            bump = np.clip(1.0 - dist_m / mistake_half_width_m, 0.0, 1.0)
+            tangent_x, tangent_z = np.gradient(geo.car_x), np.gradient(geo.car_z)
+            tangent_norm = np.hypot(tangent_x, tangent_z)
+            tangent_norm[tangent_norm < 1e-9] = 1.0
+            normal_x, normal_z = -tangent_z / tangent_norm, tangent_x / tangent_norm
+            car_x = geo.car_x + bump * mistake_lateral_offset_m * normal_x
+            car_z = geo.car_z + bump * mistake_lateral_offset_m * normal_z
 
     dv = np.gradient(speed_ms, STEP_M)
     decel_scale = 8.0  # m/s^2 that maps to brake=1.0
@@ -146,8 +160,8 @@ def generate_lap(
             "steer_angle": steer_angle,
             "gear": np.full(n, 4),
             "rpms": np.full(n, 6000),
-            "car_x": geo.car_x,
-            "car_z": geo.car_z,
+            "car_x": car_x,
+            "car_z": car_z,
         }
     ), float(current_lap_time_ms[-1])
 
@@ -182,6 +196,7 @@ def generate_sample_session(
             mistake_apex_s=mistake_apex_s,
             mistake_speed_scale=0.85,
             mistake_shift_m=-15.0,
+            mistake_lateral_offset_m=2.5,
         )
         frames[lap_number] = df
         laps.append(LapInfo(lap_number=lap_number, lap_time_ms=round(lap_time_ms), valid=True))

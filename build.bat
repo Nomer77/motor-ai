@@ -34,22 +34,22 @@ if exist dist rmdir /s /q dist
 
 echo.
 echo Building MotorAICalibrate.exe ^(one-time check that telemetry reads correctly^)...
-pyinstaller --noconfirm --clean --name MotorAICalibrate --console --paths . motorai\capture\verify_capture.py
+pyinstaller --noconfirm --clean --name MotorAICalibrate --console --paths . launchers\calibrate.py
 if errorlevel 1 goto :error
 
 echo.
 echo Building MotorAIRecord.exe ^(records a live session while you drive^)...
-pyinstaller --noconfirm --clean --name MotorAIRecord --console --paths . motorai\capture\run_session.py
+pyinstaller --noconfirm --clean --name MotorAIRecord --console --paths . launchers\record.py
 if errorlevel 1 goto :error
 
 echo.
 echo Building MotorAI.exe ^(session viewer^)...
-pyinstaller --noconfirm --clean --name MotorAI --windowed --collect-all PySide6 --paths . motorai\ui\app.py
+pyinstaller --noconfirm --clean --name MotorAI --windowed --collect-all PySide6 --paths . launchers\viewer.py
 if errorlevel 1 goto :error
 
 echo.
 echo Building MotorAIReport.exe ^(exports a session as a shareable HTML file^)...
-pyinstaller --noconfirm --clean --name MotorAIReport --console --paths . motorai\report\__main__.py
+pyinstaller --noconfirm --clean --name MotorAIReport --console --paths . launchers\report.py
 if errorlevel 1 goto :error
 
 echo.
